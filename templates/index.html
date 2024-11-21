@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Regression 2</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}">
+
+    <meta property="og:title" content="Image inpainting with linear regression, Meta age L" />
+    <meta property="og:description" content="Remove object, change background, change object, donate me" />
+    <meta property="og:image" content="{{ url_for('static', filename='ishowspeed.jpg') }}" />
+    <meta property="og:url" content="https://group1dap391.online" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Deep Learning" />
+
+</head>
+
+<body>
+    <div class="container">
+        <div class="left">
+            <button id="toggle-btn">Original Image</button>
+            <button id="download-edited-image" style="display: none;">Download this image</button>
+            <select id="zoom-select">
+                <option value="0.25">25%</option>
+                <option value="0.5">50%</option>
+                <option value="0.75">75%</option>
+                <option value="1" selected>100%</option>
+                <option value="1.25">125%</option>
+                <option value="1.5">150%</option>
+                <option value="1.75">175%</option>
+                <option value="2">200%</option>
+                <option value="3">300%</option>
+            </select>
+            <div class="image-display" id="image-display">
+                <img id="original-image" class="image">
+                <img id="edited-image-1" class="image" style="display: none;">
+                <img id="edited-image-2" class="image" style="display: none;">
+                <img id="edited-image-3" class="image" style="display: none;">
+                <img id="marker-for-coordinate" src="{{ url_for('static', filename='star.png') }}" style="display: none;">
+            </div>
+        </div>
+        <div class="right">
+            <label class="custom-file-upload">
+                <input type="file" id="upload-btn" accept="image/*">
+                Choose File
+            </label>
+            <span id="file-name" class="file-name">No file chosen</span>
+            <span id="current-coord" class="file-name">Current coordinates: (0, 0)</span>
+            <button type="button" id="remove-object-btn">Remove object</button>
+            <textarea id="prompt-input" placeholder="Write something to change background or change object"></textarea>
+            <select id="mask-select">
+                <option value="1" selected>Select smaller object area</option>
+                <option value="2">select larger object area</option>
+            </select>
+            <div class="bottom-button">
+                <button id="change-background-btn">Change Background</button>
+                <button id="change-object-btn">Change Object</button>
+            </div>
+            <button id="how-to-use">How to use?</button>
+        </div>
+    </div>
+    <div id="loading-overlay">
+        <div class="loading-message"></div>
+        <div id="queue-number"></div>
+        <div id="qr-instruct">ít thì 5 quả trứng nhiều thì 1 tên lửa &#10084;</div>
+        <img id="qr-donate" src="{{ url_for('static', filename='bank_qr.jpg') }}">
+    </div>
+    <div id="use-manual">
+        <button id="close-button" style="position: fixed; top: 10px; right: 10px; color: white; background: none; border: none; font-size: 90px; cursor: pointer;">&times;</button>
+        <div id="table-manual">
+            <div><h1>Welcome to Group 1 inpaint website!</h1></div>
+            <div>- This site use <a href="https://www.youtube.com/watch?v=dQw4w9WgXcQ" title="Click here to learn about this super AI technology from Mars" style="font-style: italic;text-decoration: underline;">linear regression 5.0 super AI from nasa server</a> and has 3 functions: remove object, change object, change background</div>
+            <div>- Here are the steps to use this website:</div>
+            <ol>
+                <li>Upload the image file by clicking <button style="background-color: #007bff;color: white;cursor: pointer;border-radius: 5px;">Choose File</button>, We accept JPEG, PNG, WEBP, BMP format and max size is 5Mb</li>
+                <li>Select the coordinates of the object by clicking on the object</li>
+                <li>From here, you can do:
+                    <ul>
+                        <li>Remove Object: click <button style="background-color: #007bff;color: white;cursor: pointer;border-radius: 5px;">Remove Object</button></li>
+                        <li>Filling: You need to type in the <textarea placeholder="Write something" readonly style="width: 120px;height: 15px;"></textarea> to describe the new background or new object, then select the type of mask by clicking the <select><option>Select smaller object area</option></select>, you will have 2 options: small and large, you can choose 1 of 2 to apply the object segment as you want, the next step:
+                            <ul>
+                                <li>Change Background: after describing the new background, clicking <button style="background-color: #28a745;color: white;cursor: pointer;border-radius: 5px;">Change Background</button></li>
+                                <li>Change Object: after describing the new object, clicking <button style="background-color: #28a745;color: white;cursor: pointer;border-radius: 5px;">Change Object</button></li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li>After you do the above tasks, you will have to wait a moment for the server to process, in the meantime you can donate me a cup of coffee by qr code to maintain the server</li>
+                <li>Result: After you see the success dialog pop up, click ok, then click <button style="background-color: #007bff;color: white;cursor: pointer;border-radius: 5px;">Original Image</button> to switch between original and edited image, remove object will return 3 results, change background will return an image in Edited Image 1, change object will return an image in Edited Image 2</li>
+                <li>Final: you can click <button style="background-color: #007bff;color: white;cursor: pointer;border-radius: 5px;">Download this image</button> to download processed image</li>
+                <img id="qr-donate-2" src="{{ url_for('static', filename='bank_qr.jpg') }}"> 
+                <div style="margin-left: 50px;font-style: italic;">If you love this project, donate me a coffee to maintain the server here, love u guys <span style="color: red;">&#10084;</span></div>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // variable
+        const toggleBtn = document.getElementById('toggle-btn');
+        const originalImage = document.getElementById('original-image');
+        const editedImage1 = document.getElementById('edited-image-1');
+        const editedImage2 = document.getElementById('edited-image-2');
+        const editedImage3 = document.getElementById('edited-image-3');
+        const uploadBtn = document.getElementById('upload-btn');
+        const fileNameDisplay = document.getElementById('file-name');
+        const imageDisplay = document.getElementById('image-display');
+        const markerForCoordinate = document.getElementById('marker-for-coordinate');
+        const downloadEditedImage = document.getElementById('download-edited-image');
+        const changeBackgroundBtn = document.getElementById('change-background-btn');
+        const removeObjectBtn = document.getElementById('remove-object-btn');
+        const changeObjectBtn = document.getElementById('change-object-btn');
+        const howToUseBtn = document.getElementById('how-to-use');
+        const closeBtn = document.getElementById('close-button');
+        let x, y;
+
+
+        // khi click vào how to use
+        howToUseBtn.addEventListener('click', () => {
+            document.getElementById('use-manual').style.display = 'block';
+        });
+
+        // tát how to use
+        closeBtn.addEventListener('click', () => {
+            document.getElementById('use-manual').style.display = 'none';
+        });
+
+        // original vs edited 1 2 3
+        toggleBtn.addEventListener('click', () => {
+            if (originalImage.style.display === 'block') {
+                originalImage.style.display = 'none';
+                editedImage1.style.display = 'block';
+                toggleBtn.textContent = 'Edited Image 1';
+                markerForCoordinate.style.display = 'none';
+
+                removeObjectBtn.style.backgroundColor = '#7a797a';
+                removeObjectBtn.style.cursor = 'default';
+
+                changeBackgroundBtn.style.backgroundColor = '#7a797a';
+                changeBackgroundBtn.style.cursor = 'default';
+
+                changeObjectBtn.style.backgroundColor = '#7a797a';
+                changeObjectBtn.style.cursor = 'default';
+
+                downloadEditedImage.style.display = 'block';
+            } else if (editedImage1.style.display === 'block') {
+                editedImage1.style.display = 'none';
+                editedImage2.style.display = 'block';
+                toggleBtn.textContent = 'Edited Image 2';
+                markerForCoordinate.style.display = 'none';
+
+                removeObjectBtn.style.backgroundColor = '#7a797a';
+                removeObjectBtn.style.cursor = 'default';
+
+                changeBackgroundBtn.style.backgroundColor = '#7a797a';
+                changeBackgroundBtn.style.cursor = 'default';
+
+                changeObjectBtn.style.backgroundColor = '#7a797a';
+                changeObjectBtn.style.cursor = 'default';
+
+                downloadEditedImage.style.display = 'block';
+            } else if (editedImage2.style.display === 'block') {
+                editedImage2.style.display = 'none';
+                editedImage3.style.display = 'block';
+                toggleBtn.textContent = 'Edited Image 3';
+                markerForCoordinate.style.display = 'none';
+
+                removeObjectBtn.style.backgroundColor = '#7a797a';
+                removeObjectBtn.style.cursor = 'default';
+
+                changeBackgroundBtn.style.backgroundColor = '#7a797a';
+                changeBackgroundBtn.style.cursor = 'default';
+
+                changeObjectBtn.style.backgroundColor = '#7a797a';
+                changeObjectBtn.style.cursor = 'default';
+
+                downloadEditedImage.style.display = 'block';
+            } else if (editedImage3.style.display === 'block') {
+                editedImage3.style.display = 'none';
+                originalImage.style.display = 'block';
+                toggleBtn.textContent = 'Original Image';
+                if (x != 0 && y != 0) {
+                    markerForCoordinate.style.display = 'block';
+                } else {
+                    markerForCoordinate.style.display = 'none';
+                }
+
+                removeObjectBtn.style.backgroundColor = '#007bff';
+                removeObjectBtn.style.cursor = 'cursor';
+
+                changeBackgroundBtn.style.backgroundColor = '#28a745';
+                changeBackgroundBtn.style.cursor = 'cursor';
+
+                changeObjectBtn.style.backgroundColor = '#28a745';
+                changeObjectBtn.style.cursor = 'cursor';
+
+                downloadEditedImage.style.display = 'none';
+            }
+        });
+
+        // upload preview ảnh
+        uploadBtn.addEventListener('change', (event) => {
+            // Luôn đưa zoom về 100% khi load ảnh
+            document.getElementById('zoom-select').value = 1;
+            const images = document.getElementsByClassName('image');
+            for (let i = 0; i < images.length; i++) {
+                images[i].style.scale = 1;
+            }
+            markerForCoordinate.style.scale = 0.04;
+            x = 0;
+            y = 0;
+            document.getElementById('current-coord').textContent = `Current coordinates: (${x}, ${y})`;
+            
+            markerForCoordinate.style.display = 'none';
+            
+            removeObjectBtn.style.backgroundColor = '#7a797a';
+            removeObjectBtn.style.cursor = 'default';
+
+            changeBackgroundBtn.style.backgroundColor = '#7a797a';
+            changeBackgroundBtn.style.cursor = 'default';
+
+            changeObjectBtn.style.backgroundColor = '#7a797a';
+            changeObjectBtn.style.cursor = 'default';
+
+            // Load ảnh
+            const file = event.target.files[0];
+            if (file) {
+                const maxSizeInMB = 5;
+                if (file.size > maxSizeInMB * 1024 * 1024) {
+                    alert(`File size exceeds ${maxSizeInMB} Mb. Please select a smaller image.`);
+                    event.target.value = '';
+                    return;
+                }
+
+                uploadedFile = file;
+                const validImageTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/bmp'];
+                const reader = new FileReader();
+                
+                if (validImageTypes.includes(file.type)) {
+                    reader.onload = (e) => {
+                        const imageSrc = e.target.result;
+                        originalImage.src = imageSrc;
+                        originalImage.style.display = 'block';
+                        fileNameDisplay.textContent = file.name;
+                        editedImage1.style.display = 'none';
+                        editedImage2.style.display = 'none';
+                        editedImage3.style.display = 'none';
+                        downloadEditedImage.style.display = 'none';
+                        toggleBtn.textContent = 'Original Image';
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    alert('Please select a valid image file (JPEG, PNG, WEBP, BMP).');
+                    event.target.value = '';
+                }
+            } else {
+                if (originalImage.style.display === 'none' && editedImage1.style.display === 'none' && 
+                editedImage2.style.display === 'none' && editedImage3.style.display === 'none') {
+                    fileNameDisplay.textContent = 'No file chosen ';
+                }
+            }
+        });
+        
+        // apply zoom
+        document.getElementById('zoom-select').addEventListener('change', function() {
+            const scale_value = parseFloat(this.value);
+            const images = document.getElementsByClassName('image');
+            for (let i = 0; i < images.length; i++) {
+                images[i].style.scale = scale_value;
+            }
+            markerForCoordinate.style.scale = scale_value*0.04;
+        });
+        
+        // lấy tọa độ của object, unlock nút remove object, change background
+        originalImage.addEventListener('click', (event) => {
+            const rect = originalImage.getBoundingClientRect();
+            const scaleX = originalImage.naturalWidth / rect.width;
+            const scaleY = originalImage.naturalHeight / rect.height;
+
+            x = (event.clientX - rect.left) * scaleX;
+            y = (event.clientY - rect.top) * scaleY;
+            document.getElementById('current-coord').textContent = `Current coordinates: (${x.toFixed(2)}, ${y.toFixed(2)})`;
+
+            const rect_father = imageDisplay.getBoundingClientRect();
+            const x_father = event.clientX - rect_father.left;
+            const y_father = event.clientY - rect_father.top;
+
+            markerForCoordinate.style.display = 'block';
+            markerForCoordinate.style.left = `${x_father - markerForCoordinate.width / 2}px`;
+            markerForCoordinate.style.top = `${y_father - markerForCoordinate.height / 2}px`;
+
+            Object.assign(removeObjectBtn.style, {
+                backgroundColor: '#007bff',
+                cursor: 'pointer'
+            });
+            Object.assign(changeBackgroundBtn.style, {
+                backgroundColor: '#28a745',
+                cursor: 'pointer'
+            });
+            Object.assign(changeObjectBtn.style, {
+                backgroundColor: '#28a745',
+                cursor: 'pointer'
+            });
+        })
+
+        originalImage.addEventListener('click', (event) => {
+            const rect = originalImage.getBoundingClientRect();
+            const scaleX = originalImage.naturalWidth / rect.width;
+            const scaleY = originalImage.naturalHeight / rect.height;
+
+            x = (event.clientX - rect.left) * scaleX;
+            y = (event.clientY - rect.top) * scaleY;
+            document.getElementById('current-coord').textContent = `Current coordinates: (${x.toFixed(2)}, ${y.toFixed(2)})`;
+
+            const rect_father = imageDisplay.getBoundingClientRect();
+            const x_father = event.clientX - rect_father.left;
+            const y_father = event.clientY - rect_father.top;
+
+            markerForCoordinate.style.display = 'block';
+            markerForCoordinate.style.left = `${x_father - markerForCoordinate.width / 2}px`;
+            markerForCoordinate.style.top = `${y_father - markerForCoordinate.height / 2}px`;
+
+            Object.assign(removeObjectBtn.style, {
+                backgroundColor: '#007bff',
+                cursor: 'pointer'
+            });
+            Object.assign(changeBackgroundBtn.style, {
+                backgroundColor: '#28a745',
+                cursor: 'pointer'
+            });
+            Object.assign(changeObjectBtn.style, {
+                backgroundColor: '#28a745',
+                cursor: 'pointer'
+            });
+        })
+
+        const checkTaskResult = (task_id, task_type, loadingInterval) => {
+            let request_type;
+            if (task_type === 'remove-object') {
+                request_type = `/remove-object-result/${task_id}`;
+            } else if (task_type === 'replace-background') {
+                request_type = `/change-background-result/${task_id}`;
+            } else if (task_type === 'replace-object') {
+                request_type = `/change-object-result/${task_id}`;
+            }
+
+            fetch(request_type)
+            .then(response => response.json())
+            .then(result => {
+                if (result.state === 'PENDING') {
+                    const queue_numb = result.queue_number;
+                    if (queue_numb == 0){
+                        document.getElementById('queue-number').textContent = `Queue Number: ${queue_numb} (Your image is currently being processed)`;
+                    } else {
+                        document.getElementById('queue-number').textContent = `Queue Number: ${queue_numb}`;            
+                    }
+                    setTimeout(() => checkTaskResult(task_id, task_type, loadingInterval), 500);
+                } else if (result.state === 'SUCCESS') {
+                    const timestamp = new Date().getTime();
+                    if (result.task === 'REMOVE_OBJECT') {
+                        alert('Remove Object Done! Click Original Image button to see results (3 results).');
+                        const img_urls = result.image_urls;
+                        editedImage1.src = img_urls[0] + '?t=' + timestamp;
+                        editedImage2.src = img_urls[1] + '?t=' + timestamp; 
+                        editedImage3.src = img_urls[2] + '?t=' + timestamp; 
+                    } else if (result.task === 'CHANGE_BACKGROUND') {
+                        alert('Change Background Done! Click Original Image once to change to Edited Image 1 to see result.');
+                        const img_url = result.image_url;
+                        editedImage1.src = img_url + '?t=' + timestamp;
+                    } else if (result.task === 'CHANGE_OBJECT') {
+                        alert('Change Object Done! Click Original Image twice to change to Edited Image 2 to see result.');
+                        const img_url = result.image_url;
+                        editedImage2.src = img_url + '?t=' + timestamp;
+                    }
+                    clearInterval(loadingInterval);
+                    document.getElementById('loading-overlay').style.display = 'none';
+                    document.getElementById('queue-number').textContent = '';
+                } else {
+                    console.error('Task failed:', result.result);
+                    alert('An error occurred while removing the object. Please try again.');
+                }
+            })
+            .catch(error => console.error('Error:', error))
+            .finally(() => {})
+        };
+
+
+        // khi bấm remove object
+        removeObjectBtn.addEventListener('click', () => {
+            if (x === undefined && y === undefined) {
+                alert('Please upload image and select the coordinates of object to delete before deleting the object.');
+            }
+            else if (x == 0 && y == 0){
+                alert('Please select the coordinates to delete before deleting the object.');
+            }
+            else if (editedImage1.style.display === 'block' || 
+                    editedImage2.style.display === 'block' || 
+                    editedImage3.style.display === 'block') {
+                        alert('Go back to original image to remove object.')
+                    }
+            else {
+                const loadingMessage = document.querySelector('.loading-message');
+                loadingMessage.textContent = 'Please wait a moment';
+                let dots = 0;
+
+                const loadingInterval = setInterval(() => {
+                    dots = (dots + 1) % 6;
+                    loadingMessage.textContent = 'Please wait a moment ' + '.'.repeat(dots);
+                }, 500);
+                
+                
+                document.getElementById('loading-overlay').style.display = 'flex';
+                document.getElementById('queue-number').textContent = 'Uploading file to server'; 
+
+                const formData = new FormData();
+                formData.append('image', uploadedFile);
+                formData.append('x', x);
+                formData.append('y', y);
+                formData.append('getQueueNumb', 'True');
+            
+                fetch('/remove-object', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message) {
+                        clearInterval(loadingInterval);
+                        document.getElementById('loading-overlay').style.display = 'none';
+                        document.getElementById('queue-number').textContent = '';
+                        alert(data.message);
+                    } else if (data.taskID) {
+                        const task_id = data.taskID;
+                        checkTaskResult(task_id, 'remove-object', loadingInterval);
+                    }
+                })
+                .catch(error => console.error('Error:', error))
+                .finally(() => {})
+            }
+        })
+
+        // khi bấm change background
+        changeBackgroundBtn.addEventListener('click', () => {
+            let userPrompt = document.getElementById('prompt-input');
+            const userPromptText = userPrompt.value.trim();
+            const wordCount = userPromptText === "" ? 0 : userPromptText.split(/\s+/).length;
+            const mask_number = document.getElementById('mask-select').value;
+
+            if (x === undefined && y === undefined) {
+                alert('Please upload image and select the coordinates to delete before changing the background.');
+            } else if (x == 0 && y == 0) {
+                alert('Please select the coordinates of object before changing the background.');
+            } else if (editedImage1.style.display === 'block' || 
+                    editedImage2.style.display === 'block' || 
+                    editedImage3.style.display === 'block') {
+                alert('Go back to original image to change background.')
+            } else if (wordCount < 3 || wordCount > 20) {
+                alert("Please enter 3 - 20 words to describe new background.")
+            } else {
+                const loadingMessage = document.querySelector('.loading-message');
+                loadingMessage.textContent = 'Please wait a moment';
+                let dots = 0;
+
+                const loadingInterval = setInterval(() => {
+                    dots = (dots + 1) % 6;
+                    loadingMessage.textContent = 'Please wait a moment ' + '.'.repeat(dots);
+                }, 500);
+
+                document.getElementById('loading-overlay').style.display = 'flex';
+                document.getElementById('queue-number').textContent = 'Uploading file to server'; 
+
+                const formData = new FormData();
+                formData.append('image', uploadedFile);
+                formData.append('x', x);
+                formData.append('y', y);
+                formData.append('mask-number', mask_number);
+                formData.append('prompt', userPromptText);
+
+                fetch('/replace-background', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message) {
+                        clearInterval(loadingInterval);
+                        document.getElementById('loading-overlay').style.display = 'none';
+                        document.getElementById('queue-number').textContent = '';
+                        alert(data.message);
+                    } else if (data.taskID) {
+                        const task_id = data.taskID;
+                        checkTaskResult(task_id, 'replace-background', loadingInterval);
+                    } 
+                })
+                .catch(error => console.error('Error:', error))
+                .finally(() => {})
+            }
+        })
+
+        // khi bấm change object
+        changeObjectBtn.addEventListener('click', () => {
+            let userPrompt = document.getElementById('prompt-input');
+            const userPromptText = userPrompt.value.trim();
+            const wordCount = userPromptText === "" ? 0 : userPromptText.split(/\s+/).length;
+            const mask_number = document.getElementById('mask-select').value;
+
+            if (x === undefined && y === undefined) {
+                alert('Please upload image and select the coordinates of object before changing the object.');
+            } else if (x == 0 && y == 0) {
+                alert('Please select the coordinates of object before changing the object.');
+            } else if (editedImage1.style.display === 'block' || 
+                    editedImage2.style.display === 'block' || 
+                    editedImage3.style.display === 'block') {
+                alert('Go back to original image to change object.')
+            } else if (wordCount < 2 || wordCount > 20) {
+                alert("Please enter 2 - 20 words to describe new object.")
+            } else {
+                const loadingMessage = document.querySelector('.loading-message');
+                loadingMessage.textContent = 'Please wait a moment';
+                let dots = 0;
+
+                const loadingInterval = setInterval(() => {
+                    dots = (dots + 1) % 6;
+                    loadingMessage.textContent = 'Please wait a moment ' + '.'.repeat(dots);
+                }, 500);
+
+                document.getElementById('loading-overlay').style.display = 'flex';
+                document.getElementById('queue-number').textContent = 'Uploading file to server'; 
+
+                const formData = new FormData();
+                formData.append('image', uploadedFile);
+                formData.append('x', x);
+                formData.append('y', y);
+                formData.append('mask-number', mask_number);
+                formData.append('prompt', userPromptText);
+
+                fetch('/replace-object', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.message) {
+                        clearInterval(loadingInterval);
+                        document.getElementById('loading-overlay').style.display = 'none';
+                        document.getElementById('queue-number').textContent = '';
+                        alert(data.message);
+                    } else if (data.taskID) {
+                        const task_id = data.taskID;
+                        checkTaskResult(task_id, 'replace-object', loadingInterval);
+                    }       
+                })
+                .catch(error => console.error('Error:', error))
+                .finally(() => {})
+            }
+        })
+
+
+        downloadEditedImage.addEventListener('click', () => {
+            let currentImage;
+            if (editedImage1.style.display === 'block') {
+                currentImage = editedImage1.src;
+            } else if (editedImage2.style.display === 'block') {
+                currentImage = editedImage2.src;
+            } else if (editedImage3.style.display === 'block') {
+                currentImage = editedImage3.src;
+            }
+            if (currentImage !== 'none') {
+                const link = document.createElement('a');
+                link.href = currentImage;
+                const filename = currentImage.split('/').pop();
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert('Không có ảnh để tải về!');
+            }
+        })
+
+    </script>
+
+</body>
+</html>
